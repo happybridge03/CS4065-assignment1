@@ -1,12 +1,16 @@
 """
-Assignment 1 
+Assignment 1
 Sean Bridge
 
 Code for Task 1. Webserver implementation.
 """
+# Modules
 import socket
 import threading
-from typing import Any
+from typing import Any, IO
+
+# Constants
+CRLF = '\r\n'
 
 
 class WebServer():
@@ -24,23 +28,20 @@ class WebServer():
                 request = HttpRequest(conn)
 
                 # Create a new thread to process request
-                thread = threading.Thread(target=request)
+                thread = threading.Thread(target=request, daemon=True)
 
                 # Start the thread
                 thread.run()
 
 
-class HttpRequest():
+class HttpRequest:
 
     def __init__(self, conn: socket.socket) -> None:
         self.socket = conn
 
     # What gets called in the thread
     def __call__(self, *args: Any, **kwds: Any) -> None:
-        try:
-            self.process_request()
-        except Exception as e:
-            print(e)
+        self.process_request()
 
     def process_request(self):
         """ Processes the request associated with this HttpRequest.
@@ -54,11 +55,19 @@ class HttpRequest():
                     CRLF
                     [ Entity-Body ]
 
+        Response = Status-Line
+                   *( General-Header
+                    | Response-Header
+                    | Entity-Header)
+                   CRLF
+                   [ Entity-Body ]
+
         Each of these sections are terminated by a CRLF charecter.
         """
         # Get the data from the socket
         input = str(self.socket.recv(4096), 'ascii')
-        input = input.split('\r\n')
+        input = input.split(CRLF)
+        print("Request:\n------")
 
         # Grab the request line of the HTTP Request
         request_line: str = input.pop(0)
@@ -70,8 +79,63 @@ class HttpRequest():
         for header in header_lines:
             print(header)
 
-        # Close socket
+        # Tokenzie the request line
+        reqeust_tokens = request_line.split()
+
+        # Skip the method (should be GET)
+        reqeust_tokens.pop(0)
+
+        # Get file name, prepending '.' so its in the local directory
+        file_name = "." + reqeust_tokens.pop(0)
+
+        # Open the file
+        try:
+            file_stream = open(file_name, 'br')
+        except BaseException:
+            file_stream = None
+
+        # Construct response method
+        if file_stream:
+            status_line = f"HTTP/1.0 200{CRLF}"
+            content_type_line = (f"Content-type: "
+                                 f"{self.content_type(file_name)}{CRLF}")
+        else:
+            status_line = f"HTTP/1.0 404{CRLF}"
+            content_type_line = f"Content-type: text/html{CRLF}"
+        response = f"{status_line}{content_type_line}{CRLF}"
+        entity_body_bytes = self.entity_body(file_stream)
+
+        # Print Response
+        print(f"Response\n------\n{response}")
+
+        # Send the response
+        response_bytes = bytes(response, 'ascii')
+        self.socket.send(response_bytes + entity_body_bytes)
+
+        # Close the socket
         self.socket.close()
+
+    @staticmethod
+    def content_type(file_name: str) -> str:
+        file_id = file_name[file_name.rfind('.'):]
+
+        match file_id:
+            case (".htm" | ".html"):
+                return "text/html"
+            case ".gif":
+                return 'image/gif'
+            case ".jpg":
+                return 'image/jpeg'
+            case _:
+                return "application/octet-stream"
+
+    @staticmethod
+    def entity_body(file: IO) -> str | bytes:
+        if not file:
+            return bytes("<html><head><title>Not Found</title></head>"
+                         "<body>Not Found</body></html>", 'ascii')
+        else:
+            return file.read()
 
 
 if __name__ == "__main__":
