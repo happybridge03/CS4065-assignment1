@@ -37,10 +37,41 @@ class HttpRequest():
 
     # What gets called in the thread
     def __call__(self, *args: Any, **kwds: Any) -> None:
-        self.process_request()
+        try:
+            self.process_request()
+        except Exception as e:
+            print(e)
 
     def process_request(self):
-        pass
+        """ Processes the request associated with this HttpRequest.
+
+        Messages are in the format of...
+
+        Request = Request-Line
+                    *( General-Header
+                    | Request-Header
+                    | Entity-Header)
+                    CRLF
+                    [ Entity-Body ]
+
+        Each of these sections are terminated by a CRLF charecter.
+        """
+        # Get the data from the socket
+        input = str(self.socket.recv(4096), 'ascii')
+        input = input.split('\r\n')
+
+        # Grab the request line of the HTTP Request
+        request_line: str = input.pop(0)
+        print(request_line)
+
+        # Grab the header lines
+        header_lines = input[:input.index('')]
+        input = input[input.index(''):]
+        for header in header_lines:
+            print(header)
+
+        # Close socket
+        self.socket.close()
 
 
 if __name__ == "__main__":
