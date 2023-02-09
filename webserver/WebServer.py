@@ -7,6 +7,7 @@ Code for Task 1. Webserver implementation.
 # Modules
 import socket
 import threading
+from FTPClient import FTPClient
 from typing import Any, IO
 
 # Constants
@@ -99,11 +100,34 @@ class HttpRequest:
             status_line = f"HTTP/1.0 200{CRLF}"
             content_type_line = (f"Content-type: "
                                  f"{self.content_type(file_name)}{CRLF}")
+        elif file_name.endswith('.txt'):
+            # Is a text file, use FTP
+
+            # Create an FTPClient
+            ftp_client = FTPClient()
+
+            # Connect to FTP Server
+            ftp_client.connect('user', 'password')
+
+            # Retreive File
+            ftp_client.get_file(file_name)
+
+            # Disconnect from FTP Server
+            ftp_client.disconnect()
+
+            # Open the file
+            file_stream = open(file_name, 'br')
         else:
+            # File doesn't exist
             status_line = f"HTTP/1.0 404{CRLF}"
             content_type_line = f"Content-type: text/html{CRLF}"
+
         response = f"{status_line}{content_type_line}{CRLF}"
         entity_body_bytes = self.entity_body(file_stream)
+
+        # Close the file
+        if file_stream is not None:
+            file_stream.close()
 
         # Print Response
         print(f"Response\n------\n{response}")
