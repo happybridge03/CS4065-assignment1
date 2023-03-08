@@ -102,6 +102,9 @@ class HttpRequest:
                                  f"{self.content_type(file_name)}{CRLF}")
         elif file_name.endswith('.txt'):
             # Is a text file, use FTP
+            status_line = f"HTTP/1.0 200{CRLF}"
+            content_type_line = (f"Content-type: "
+                                 f"{self.content_type(file_name)}{CRLF}")
 
             # Create an FTPClient
             ftp_client = FTPClient()
@@ -116,7 +119,13 @@ class HttpRequest:
             ftp_client.disconnect()
 
             # Open the file
-            file_stream = open(file_name, 'br')
+            try:
+                file_stream = open(file_name, 'br')
+            except BaseException:
+                file_stream = None
+                # File doesn't exist
+                status_line = f"HTTP/1.0 404{CRLF}"
+                content_type_line = f"Content-type: text/html{CRLF}"
         else:
             # File doesn't exist
             status_line = f"HTTP/1.0 404{CRLF}"
@@ -144,7 +153,7 @@ class HttpRequest:
         file_id = file_name[file_name.rfind('.'):]
 
         match file_id:
-            case (".htm" | ".html"):
+            case (".htm" | ".html" | ".txt"):
                 return "text/html"
             case ".gif":
                 return 'image/gif'
